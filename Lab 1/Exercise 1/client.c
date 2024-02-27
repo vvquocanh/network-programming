@@ -6,6 +6,7 @@ This is the client program.
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <unistd.h>
 
 #define MYMSGLEN 2000
 
