@@ -33,11 +33,11 @@ int main(int argc, char* argv[]) {
 	
 	printf("Return value: %d\n", res);
 	
-	printf("connection established, waiting to be accepted ......");
+	printf("connection established, waiting to be accepted ......\n");
 	
 	while (1) {
 		memset(message, 0, MYMSGLEN);
-		printf("\nPlease type a message to transfer for processing:");
+		printf("\nType a string to the server: ");
 		scanf("%s", message);	
 		
 		if (send(sock, message, strlen(message), 0) < 0) {
@@ -53,7 +53,7 @@ int main(int argc, char* argv[]) {
 			return -1;
 		}
 		
-		printf("Server reply: %s", server_reply);
+		printf("Server reply: %s\n", server_reply);
 	}
 	
 	return 0;

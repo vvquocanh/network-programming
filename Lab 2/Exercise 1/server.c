@@ -59,37 +59,39 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	
-	printf("Waiting for incoming connections ....\n");
-	
-	socket_size = sizeof(struct sockaddr_in);
-	
-	client_sock = accept(socket_desc, (struct sockaddr *) &client, (socklen_t *) &socket_size);
-	
-	if (client_sock < 0) {
-		close(socket_desc);
-		perror("accept failed");
-		return -1;
-	}
-	
 	printf("Connection accepted\n");
 	
-	while ((read_size = recv(client_sock, client_message, MYMSGLEN, 0)) > 0) {
-		client_message[read_size] = '\0';
-		printf("Msg received: %s, size of the message received, %d\n", client_message, read_size);
+	while (1) {
+		printf("Waiting for incoming connections ....\n");
+	
+		socket_size = sizeof(struct sockaddr_in);
+	
+		client_sock = accept(socket_desc, (struct sockaddr *) &client, (socklen_t *) &socket_size);
+	
+		if (client_sock < 0) {
+			close(socket_desc);
+			perror("accept failed");
+			return -1;
+		}
 		
-		write(client_sock, client_message, read_size);
-	} 
-	
-	if (read_size == 0) {
-		printf("client disconnected\n");
-		fflush(stdout);
+		while ((read_size = recv(client_sock, client_message, MYMSGLEN, 0)) > 0) {
+		
+			client_message[read_size] = '\0';
+			printf("Msg received: %s, size of the message received, %d\n", client_message, read_size);
+			
+			char* reply_message = palindrome(client_message) ? "The string is palindrome" : "The string is NOT palindrome";
+			
+			write(client_sock, reply_message, strlen(reply_message));
+			
+			if (read_size == 0) {
+				printf("client disconnected\n");
+				fflush(stdout);
+			}
+			else if (read_size == -1) {
+				printf("recv failed\n");
+			}
+		} 
 	}
-	else if (read_size == -1) {
-		printf("recv failed\n");
-	}
-	
-	close(socket_desc);
-	close(client_sock);
 	
 	return 0;
 }
