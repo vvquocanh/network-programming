@@ -68,12 +68,25 @@ int main(int argc, char *argv[]) {
 	
 		client_sock = accept(socket_desc, (struct sockaddr *) &client, (socklen_t *) &socket_size);
 		
-		printf("A new client is connected.\n");
+		if (getsockname(client_sock, (struct sockaddr *) &client, (socklen_t *) &socket_size) != 0) {
+			perror("Failed to get user's socket port");
+			continue;
+		}
+		
+		if (getpeername(client_sock, (struct sockaddr *) &client, (socklen_t *) &socket_size) != 0) {
+			perror("Failed to get user's socket name");
+			continue;
+		}
+		
+		printf("A new client is connected with:\n\t"
+		"- Client address: %d\n\t"
+		"- Client port: %d\n",
+		client.sin_addr.s_addr, client.sin_port);
 		
 		if (client_sock < 0) {
 			close(socket_desc);
 			perror("accept failed");
-			return -1;
+			continue;
 		}
 		
 		while ((read_size = recv(client_sock, client_message, MYMSGLEN, 0)) > 0) {

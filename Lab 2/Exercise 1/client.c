@@ -8,7 +8,8 @@
 
 int main(int argc, char* argv[]) {
 	int sock;
-	struct sockaddr_in server;
+	int socket_size;
+	struct sockaddr_in server, client;
 	char message[MYMSGLEN], server_reply[MYMSGLEN];
 	
 	sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -33,6 +34,25 @@ int main(int argc, char* argv[]) {
 	
 	printf("Return value: %d\n", res);
 	
+	socket_size = sizeof(struct sockaddr_in);
+	
+	if (getsockname(sock, (struct sockaddr *) &client, (socklen_t *) &socket_size) != 0) {
+		perror("Failed to get socket port");
+		close(sock);
+		return -1;
+	}
+		
+	if (getpeername(sock, (struct sockaddr *) &client, (socklen_t *) &socket_size) != 0) {
+		perror("Failed to get socket name");
+		close(sock);
+		return -1;
+	}
+		
+	printf("socket information:\n\t"
+	"- address: %d\n\t"
+	"- port: %d\n",
+	client.sin_addr.s_addr, client.sin_port);
+	
 	printf("connection established, waiting to be accepted ......\n");
 	
 	while (1) {
@@ -40,6 +60,12 @@ int main(int argc, char* argv[]) {
 		memset(message, 0, MYMSGLEN);
 		printf("\nType a string to the server: ");
 		scanf("%s", message);	
+		
+		if (strcmp(message, "quit#") == 0) {
+			close(sock);
+			printf("Disconnected from the server\n");
+			return 0;
+		}
 		
 		if (send(sock, message, strlen(message), 0) < 0) {
 			printf("send failed\n");
