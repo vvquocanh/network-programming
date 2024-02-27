@@ -2,10 +2,14 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <unistd.h>
+
+#define MYMSGLEN 2048
 
 int main(int argc, char* argv[]) {
 	int sock;
 	struct sockaddr_in server;
+	char message[MYMSGLEN], server_reply[MYMSGLEN];
 	
 	sock = socket(AF_INET, SOCK_STREAM, 0);
 	
@@ -31,7 +35,26 @@ int main(int argc, char* argv[]) {
 	
 	printf("connection established, waiting to be accepted ......");
 	
-	while (1);
+	while (1) {
+		memset(message, 0, MYMSGLEN);
+		printf("\nPlease type a message to transfer for processing:");
+		scanf("%s", message);	
+		
+		if (send(sock, message, strlen(message), 0) < 0) {
+			printf("send failed\n");
+			close(sock);
+			return -1;
+		}
+		
+		memset(server_reply, 0, MYMSGLEN);
+		if (recv(sock, server_reply, MYMSGLEN, 0) < 0) {
+			printf("recv failed\n");
+			close(sock);
+			return -1;
+		}
+		
+		printf("Server reply: %s", server_reply);
+	}
 	
 	return 0;
 }

@@ -5,6 +5,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 
+#define MYMSGLEN 2048
+
 int palindrome ( char * s )
 {
 	char * t = s + strlen ( s ) - 1 ;
@@ -19,6 +21,7 @@ int main(int argc, char *argv[]) {
 	int socket_desc, client_sock;
 	int socket_size, read_size;
 	struct sockaddr_in server, client;
+	char client_message[MYMSGLEN];
 	
 	socket_desc = socket(AF_INET, SOCK_STREAM, 0);
 	
@@ -70,7 +73,23 @@ int main(int argc, char *argv[]) {
 	
 	printf("Connection accepted\n");
 	
-	while (1);
+	while ((read_size = recv(client_sock, client_message, MYMSGLEN, 0)) > 0) {
+		client_message[read_size] = '\0';
+		printf("Msg received: %s, size of the message received, %d\n", client_message, read_size);
+		
+		write(client_sock, client_message, read_size);
+	} 
+	
+	if (read_size == 0) {
+		printf("client disconnected\n");
+		fflush(stdout);
+	}
+	else if (read_size == -1) {
+		printf("recv failed\n");
+	}
+	
+	close(socket_desc);
+	close(client_sock);
 	
 	return 0;
 }
