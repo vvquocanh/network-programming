@@ -42,12 +42,6 @@ int main(int argc, char* argv[]) {
 		return -1;
 	}
 		
-	if (getpeername(sock, (struct sockaddr *) &client, (socklen_t *) &socket_size) != 0) {
-		perror("Failed to get socket name");
-		close(sock);
-		return -1;
-	}
-		
 	printf("socket information:\n\t"
 	"- address: %d\n\t"
 	"- port: %d\n",
