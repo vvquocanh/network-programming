@@ -36,6 +36,7 @@ int main(int argc, char* argv[]) {
 	printf("connection established, waiting to be accepted ......\n");
 	
 	while (1) {
+	
 		memset(message, 0, MYMSGLEN);
 		printf("\nType a string to the server: ");
 		scanf("%s", message);	

@@ -62,12 +62,14 @@ int main(int argc, char *argv[]) {
 	printf("Connection accepted\n");
 	
 	while (1) {
-		printf("Waiting for incoming connections ....\n");
+		printf("\nWaiting for incoming connections ....\n");
 	
 		socket_size = sizeof(struct sockaddr_in);
 	
 		client_sock = accept(socket_desc, (struct sockaddr *) &client, (socklen_t *) &socket_size);
-	
+		
+		printf("A new client is connected.\n");
+		
 		if (client_sock < 0) {
 			close(socket_desc);
 			perror("accept failed");
@@ -82,16 +84,18 @@ int main(int argc, char *argv[]) {
 			char* reply_message = palindrome(client_message) ? "The string is palindrome" : "The string is NOT palindrome";
 			
 			write(client_sock, reply_message, strlen(reply_message));
-			
-			if (read_size == 0) {
-				printf("client disconnected\n");
-				fflush(stdout);
-			}
-			else if (read_size == -1) {
-				printf("recv failed\n");
-			}
 		} 
+		
+		if (read_size == 0) {
+			printf("client disconnected\n");
+			fflush(stdout);
+		}
+		
+		else if (read_size == -1) {
+			printf("recv failed\n");
+		}
 	}
+
 	
 	return 0;
 }
