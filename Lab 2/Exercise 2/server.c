@@ -18,14 +18,13 @@ int palindrome ( char * s )
 
 typedef struct Response {
 	char client_message[MYMSGLEN];
-	unsigned int character_number;
-	float cost;
 	char* reply_message;
-	
+	unsigned int character_number;
+	unsigned int cost;
 } response;
 
-float calculate_cost(unsigned int character_number) {
-	return (float)character_number * 0.23;
+unsigned int calculate_cost(unsigned int character_number) {
+	return character_number * 23;
 }
 
 response generate_response(char client_message[MYMSGLEN]) {
