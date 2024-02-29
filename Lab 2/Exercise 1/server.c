@@ -74,9 +74,9 @@ int main(int argc, char *argv[]) {
 		}
 		
 		printf("A new client is connected with:\n\t"
-		"- Client address: %d\n\t"
+		"- Client address: %s\n\t"
 		"- Client port: %d\n",
-		client.sin_addr.s_addr, client.sin_port);
+		inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 		
 		if (client_sock < 0) {
 			close(socket_desc);

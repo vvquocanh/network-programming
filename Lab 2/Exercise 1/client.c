@@ -43,9 +43,9 @@ int main(int argc, char* argv[]) {
 	}
 		
 	printf("socket information:\n\t"
-	"- address: %d\n\t"
+	"- address: %s\n\t"
 	"- port: %d\n",
-	client.sin_addr.s_addr, client.sin_port);
+	inet_ntoa(client.sin_addr), ntohs(client.sin_port));
 	
 	printf("connection established, waiting to be accepted ......\n");
 	
