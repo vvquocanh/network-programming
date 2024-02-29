@@ -18,9 +18,10 @@ int palindrome ( char * s )
 
 typedef struct Response {
 	char client_message[MYMSGLEN];
-	char* reply_message;
 	unsigned int character_number;
 	float cost;
+	char* reply_message;
+	
 } response;
 
 float calculate_cost(unsigned int character_number) {
@@ -114,7 +115,7 @@ int main(int argc, char *argv[]) {
 			
 			response response_message = generate_response(client_message);
 			
-			write(client_sock, "haha", strlen("haha"));
+			write(client_sock, (char *) &response_message, sizeof(response_message));
 		} 
 		
 		if (read_size == 0) {
