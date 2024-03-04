@@ -10,9 +10,7 @@
 #define LOCALHOST "127.0.0.1"
 
 int create_socket() {
-	int sock;
-	
-	sock = socket(AF_INET, SOCK_STREAM, 0);
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	
 	if (sock == -1) {
 		perror("Couldn't create socket\n");
@@ -94,8 +92,8 @@ void process_user_input(int sock, char message[]) {
 	exit(1);
 }
 
-void send_to_server(int sock, char message[]) {
-	if (send(sock, message, strlen(message), 0) != -1) return;
+void send_to_server(int sock, char message[], size_t message_size) {
+	if (send(sock, message, message_size, 0) != -1) return;
 			
 	printf("Send failed\n");
 	close(sock);
@@ -109,13 +107,13 @@ void send_data(int sock) {
 		
 	process_user_input(sock, message);
 	
-	send_to_server(sock, message);
+	send_to_server(sock, message, sizeof(message));
 }
 
 int receive_from_server(int sock) {
 	int server_reply;
 	
-	if (recv(sock, &server_reply, MYMSGLEN, 0) != -1) return server_reply;
+	if (recv(sock, &server_reply, sizeof(int), 0) != -1) return server_reply;
 	
 	printf("Receive failed\n");
 	close(sock);

@@ -20,9 +20,7 @@ int palindrome (char *s)
 }
 
 int create_socket() {
-	int sock;
-	
-	sock = socket(AF_INET, SOCK_STREAM, 0);
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	
 	if (sock == -1) {
 		perror("Couldn't create socket\n");
@@ -39,12 +37,14 @@ void set_socket_option(int sock) {
 	
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) {
 		perror("Fail to set socket option\n");
+		close(sock);
 		exit(1);
 	}
 	
 	
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) == -1) {
 		perror("Fail to set socket option\n");
+		close(sock);
 		exit(1);
 	}
 }
@@ -134,12 +134,12 @@ int establish_connection(int server_sock) {
 	return client_sock;
 }
 
-ssize_t receive_message(int client_sock, char client_message[]) {
+ssize_t receive_message(int client_sock, char client_message[], size_t message_size) {
 	printf("Waiting for a string to process....\n" ) ;
 	
 	memset(client_message, 0, MYMSGLEN);
 	 
-	return recv(client_sock, client_message, MYMSGLEN, 0);
+	return recv(client_sock, client_message, message_size, 0);
 }
 
 int answer_message(int client_sock, char client_message[]) {
@@ -153,7 +153,7 @@ void response(int client_sock) {
 	
 	while(1)
 	{
-	  	ssize_t read_size = receive_message(client_sock, client_message);
+	  	ssize_t read_size = receive_message(client_sock, client_message, sizeof(client_message));
 	  	
 		if (read_size == 0) {
 			printf("Client disconnected\n");
@@ -165,6 +165,7 @@ void response(int client_sock) {
 			break;
 		}
 		
+		client_message[read_size] = '\0';
 		printf("Client message: %s\n", client_message);
 		
 		if (answer_message(client_sock, client_message) != -1) continue;
