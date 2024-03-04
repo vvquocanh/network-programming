@@ -87,6 +87,11 @@ ssize_t receive_message(int sock, struct sockaddr_in *client, char client_messag
 	return recvfrom(sock, client_message, client_message_size, 0, (struct sockaddr *) client, &len);
 }
 
+void print_client_information(struct sockaddr_in *client, char client_message[]) {
+	printf("The address of the client --> %s:%d with message: %s\n", 
+		inet_ntoa(client->sin_addr), ntohs(client->sin_port), client_message);
+}
+
 void send_message(int sock, struct sockaddr_in *client, char client_message[]) {
 	char server_reply[strlen(client_message) + 1];
 	
@@ -116,6 +121,8 @@ int main(int argc, char *argv[]) {
 		}
 		
 		client_message[read_size] = '\0';
+
+		print_client_information(&client, client_message);
 		
 		send_message(sock, &client, client_message);
 	}
