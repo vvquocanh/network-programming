@@ -9,10 +9,15 @@
 #define MYMSGLEN 2048
 #define LOCALHOST "127.0.0.1"
 
+typedef struct {
+      	uint16_t palindrome;
+      	uint16_t message_len;
+      	uint32_t cost;   
+      	char message[MYMSGLEN]; 
+} message_cost; 
+
 int create_socket() {
-	int sock;
-	
-	sock = socket(AF_INET, SOCK_STREAM, 0);
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	
 	if (sock == -1) {
 		perror("Couldn't create socket\n");
@@ -94,8 +99,8 @@ void process_user_input(int sock, char message[]) {
 	exit(1);
 }
 
-void send_to_server(int sock, char message[]) {
-	if (send(sock, message, strlen(message), 0) != -1) return;
+void send_to_server(int sock, char message[], size_t message_size) {
+	if (send(sock, message, message_size, 0) != -1) return;
 			
 	printf("Send failed\n");
 	close(sock);
@@ -109,22 +114,32 @@ void send_data(int sock) {
 		
 	process_user_input(sock, message);
 	
-	send_to_server(sock, message);
+	send_to_server(sock, message, strlen(message));
 }
 
-int receive_from_server(int sock) {
-	int server_reply;
+message_cost receive_from_server(int sock) {
+	message_cost server_reply;
 	
-	if (recv(sock, &server_reply, MYMSGLEN, 0) != -1) return server_reply;
+	if (recv(sock, (char *) &server_reply, sizeof(message_cost), 0) == -1) {
+		printf("Receive failed\n");
+		close(sock);
+		exit(1);
+	} 
+	server_reply.palindrome = ntohs(server_reply.palindrome);
+	server_reply.message_len = ntohs(server_reply.message_len);
+	server_reply.cost = ntohl(server_reply.cost);
 	
-	printf("Receive failed\n");
-	close(sock);
-	exit(1);
+	return server_reply;
 }
 
-void print_result(int server_reply) {
-	if (server_reply == 1) printf("The string is palindrome\n");
-	else printf("The string is NOT palindrome\n");
+void print_result(message_cost server_reply) {
+
+	if (server_reply.palindrome == 1) printf("%s is palindrome\n", server_reply.message);
+	else printf("%s is NOT palindrome\n", server_reply.message);
+	
+	printf("The processed message length is: %d, with a cost of: %.2f Euros\n", 
+		server_reply.message_len, 
+		((float)server_reply.cost / 100));
 }
 
 void receive_data(int sock) {

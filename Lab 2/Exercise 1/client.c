@@ -107,7 +107,7 @@ void send_data(int sock) {
 		
 	process_user_input(sock, message);
 	
-	send_to_server(sock, message, sizeof(message));
+	send_to_server(sock, message, strlen(message));
 }
 
 int receive_from_server(int sock) {

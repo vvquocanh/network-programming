@@ -8,6 +8,14 @@
 #define SERVERPORT 8888
 #define MYMSGLEN 2048
 #define MAXQUEUE 3
+#define COSTPERCHAR 23
+
+typedef struct {
+      	uint16_t palindrome;
+      	uint16_t message_len;
+      	uint32_t cost;   
+      	char message[MYMSGLEN]; 
+} message_cost; 
 
 int palindrome (char *s)
 {
@@ -20,9 +28,7 @@ int palindrome (char *s)
 }
 
 int create_socket() {
-	int sock;
-	
-	sock = socket(AF_INET, SOCK_STREAM, 0);
+	int sock = socket(AF_INET, SOCK_STREAM, 0);
 	
 	if (sock == -1) {
 		perror("Couldn't create socket\n");
@@ -39,12 +45,14 @@ void set_socket_option(int sock) {
 	
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &enable, sizeof(int)) == -1) {
 		perror("Fail to set socket option\n");
+		close(sock);
 		exit(1);
 	}
 	
 	
 	if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT, &enable, sizeof(int)) == -1) {
 		perror("Fail to set socket option\n");
+		close(sock);
 		exit(1);
 	}
 }
@@ -134,18 +142,25 @@ int establish_connection(int server_sock) {
 	return client_sock;
 }
 
-ssize_t receive_message(int client_sock, char client_message[]) {
+ssize_t receive_message(int client_sock, char client_message[], size_t message_size) {
 	printf("Waiting for a string to process....\n" ) ;
 	
 	memset(client_message, 0, MYMSGLEN);
 	 
-	return recv(client_sock, client_message, MYMSGLEN, 0);
+	return recv(client_sock, client_message, message_size, 0);
 }
 
-int answer_message(int client_sock, char client_message[]) {
-	int result = palindrome(client_message);
+int answer_message(int client_sock, char client_message[], size_t read_size) {
+	int palind = palindrome(client_message);
+	int cost = read_size * COSTPERCHAR;
 	
-	return send(client_sock, &result, sizeof(int), 0);
+	message_cost reply;
+	reply.palindrome = htons((uint16_t) palind);
+	reply.message_len = htons((uint16_t) read_size);
+	reply.cost = htonl((uint32_t) cost);
+	strcpy(reply.message, client_message);
+	
+	return send(client_sock, (char *) &reply, sizeof(message_cost), 0);
 }
 
 void response(int client_sock) {
@@ -153,7 +168,7 @@ void response(int client_sock) {
 	
 	while(1)
 	{
-	  	ssize_t read_size = receive_message(client_sock, client_message);
+	  	ssize_t read_size = receive_message(client_sock, client_message, sizeof(client_message));
 	  	
 		if (read_size == 0) {
 			printf("Client disconnected\n");
@@ -165,11 +180,12 @@ void response(int client_sock) {
 			break;
 		}
 		
+		client_message[read_size] = '\0';
 		printf("Client message: %s\n", client_message);
 		
-		if (answer_message(client_sock, client_message) != -1) continue;
+		if (answer_message(client_sock, client_message, read_size) != -1) continue;
 		
-		perror("Fail to answer client");
+		perror("Fail to answer client\n");
 		break;
 	}
 }
