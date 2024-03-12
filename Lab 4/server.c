@@ -4,10 +4,13 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <pthread.h>
+
+#include "thread_allocation.h"
 
 #define SERVERPORT 8888
 #define MYMSGLEN 2048
-#define MAXQUEUE 3
+#define MAXQUEUE 10
 
 void mirror ( char * msg )
 {
@@ -24,6 +27,12 @@ void mirror ( char * msg )
             msg [ length - i - 1 ] = car ;
         }
 }
+
+typedef struct {
+	int client_sock;
+	pthread_t tid;
+	my_thread* thread_map;
+} thread_args;	
 
 int create_socket() {
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -100,6 +109,13 @@ int start_server() {
 	return sock;
 }
 
+void create_thread_map(my_thread* thread_map) {
+	if (allocate_thread_map(thread_map, MAXQUEUE) != -1) return;
+	
+	perror("Fail to allocate thread map");
+	exit(1);
+}
+
 int accept_connection(int server_sock, struct sockaddr_in *client) {
 	socklen_t len = sizeof(struct sockaddr_in);
 	int client_sock = accept(server_sock, (struct sockaddr *) client, &len);
@@ -158,7 +174,14 @@ int answer_message(int client_sock, char client_message[], ssize_t message_size)
 	return send(client_sock, &server_reply, message_size, 0);
 }
 
-void response(int client_sock) {
+void* thread_response(void* new_args) {
+	thread_args args = *((thread_args *) new_args);
+	free(new_args);
+		
+	int client_sock = args.client_sock;
+	pthread_t tid = args.tid;
+	my_thread* thread_map = args.thread_map;
+	
 	char client_message[MYMSGLEN];
 	
 	while(1)
@@ -183,21 +206,45 @@ void response(int client_sock) {
 		perror("Fail to answer client");
 		break;
 	}
+	
+	release_thread(thread_map, MAXQUEUE, tid);
+	pthread_exit((void *)0);
+}
+
+void response(int client_sock, my_thread* thread_map) {
+	pthread_t tid = allocate_thread(thread_map, MAXQUEUE);
+	if (tid == -1) {
+		printf("There is no thread available at the moment");
+		return;
+	}
+	
+	thread_args* new_args = (thread_args *)malloc(sizeof(thread_args));
+	new_args->client_sock = client_sock;
+	new_args->tid = tid;
+	new_args->thread_map = thread_map;
+	
+	if (pthread_create(&tid, NULL, thread_response, new_args) == 0) return;
+	
+	printf("Fail to create a thread");
+	return;
 }
 
 int main(int argc, char *argv[]) {
 	int server_sock = start_server();
+	
+	my_thread thread_map[MAXQUEUE];
+	create_thread_map(thread_map);
 	
 	while (1) {
 		
 		int client_sock = establish_connection(server_sock);
 		
 		if (client_sock == -1) {
-			perror("Fail to accept connection from clint");
+			perror("Fail to accept connection from client");
 			continue;
 		}
 		
-		response(client_sock);
+		response(client_sock, thread_map);
 	}
 	
 	return 0;
