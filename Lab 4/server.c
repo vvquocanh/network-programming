@@ -9,14 +9,20 @@
 #define MYMSGLEN 2048
 #define MAXQUEUE 3
 
-int palindrome (char *s)
+void mirror ( char * msg )
 {
-	char *t = s + strlen(s) - 1;
-	
-	while (*s == *t)
-		s++, t--;
-		
-	return s >= t;
+        int i ;
+        int length ;
+        char car ;
+        
+        length = strlen ( msg ) ;
+        
+        for ( i = 0 ; i < ( length / 2 ) ; i ++ )
+        {
+            car = msg [ i ] ;
+            msg [ i ] = msg [ length - i - 1 ] ;
+            msg [ length - i - 1 ] = car ;
+        }
 }
 
 int create_socket() {
@@ -134,7 +140,7 @@ int establish_connection(int server_sock) {
 	return client_sock;
 }
 
-ssize_t receive_message(int client_sock, char client_message[], size_t message_size) {
+ssize_t receive_message(int client_sock, char client_message[], ssize_t message_size) {
 	printf("Waiting for a string to process....\n" ) ;
 	
 	memset(client_message, 0, MYMSGLEN);
@@ -142,10 +148,14 @@ ssize_t receive_message(int client_sock, char client_message[], size_t message_s
 	return recv(client_sock, client_message, message_size, 0);
 }
 
-int answer_message(int client_sock, char client_message[]) {
-	int result = palindrome(client_message);
+int answer_message(int client_sock, char client_message[], ssize_t message_size) {
+	char server_reply[message_size];
 	
-	return send(client_sock, &result, sizeof(int), 0);
+	strcpy(server_reply, client_message);
+	
+	mirror(server_reply);
+	
+	return send(client_sock, &server_reply, message_size, 0);
 }
 
 void response(int client_sock) {
@@ -168,7 +178,7 @@ void response(int client_sock) {
 		client_message[read_size] = '\0';
 		printf("Client message: %s\n", client_message);
 		
-		if (answer_message(client_sock, client_message) != -1) continue;
+		if (answer_message(client_sock, client_message, read_size) != -1) continue;
 		
 		perror("Fail to answer client");
 		break;

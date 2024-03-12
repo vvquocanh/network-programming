@@ -110,23 +110,20 @@ void send_data(int sock) {
 	send_to_server(sock, message, strlen(message));
 }
 
-int receive_from_server(int sock) {
-	int server_reply;
-	
-	if (recv(sock, &server_reply, sizeof(int), 0) != -1) return server_reply;
+void receive_from_server(int sock, char server_reply[]) {
+	if (recv(sock, server_reply, MYMSGLEN, 0) != -1) return;
 	
 	printf("Receive failed\n");
 	close(sock);
 	exit(1);
 }
 
-void print_result(int server_reply) {
-	if (server_reply == 1) printf("The string is palindrome\n");
-	else printf("The string is NOT palindrome\n");
-}
-
 void receive_data(int sock) {
-	print_result(receive_from_server(sock));
+	char server_reply[MYMSGLEN];
+	
+	receive_from_server(sock, server_reply);
+	
+	printf("Mirror message: %s\n", server_reply);
 }
 
 int main(int argc, char* argv[]) {
