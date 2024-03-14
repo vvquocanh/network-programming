@@ -6,10 +6,9 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#define SERVERPORT 8888
+#define SERVERPORT 9999
 #define MYMSGLEN 2048
 #define MAXQUEUE 10
-#define NICKNAME 30
 
 typedef struct {
 	int client_sock;
@@ -175,10 +174,7 @@ void answer_message(int client_sock, char client_message[], ssize_t message_size
 	client* temp_client = (*head)->next;
 	
 	while(temp_client != NULL) {
-		if (temp_client->client_sock != client_sock) {
-			send(temp_client->client_sock, client_message, message_size, 0);
-		}
-		
+		send(temp_client->client_sock, client_message, message_size, 0);
 		temp_client = temp_client->next;
 	}
 }
