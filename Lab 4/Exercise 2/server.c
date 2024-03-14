@@ -138,7 +138,7 @@ int accept_connection(int server_sock, struct sockaddr_in *client) {
 	if (client_sock != -1) return client_sock;
 
 
-	perror("Fail to accept client");
+	perror("Fail to accept client\n");
 	return -1;
 }
 
@@ -191,8 +191,7 @@ void* thread_response(void* new_args) {
 	
 	while(1)
 	{
-	  	ssize_t read_size = receive_message(client_sock, client_message, sizeof(client_message));
-	  	
+	  	ssize_t read_size = receive_message(client_sock, client_message, sizeof(client_message)); 
 		if (read_size == 0) {
 			printf("\nClient disconnected\n");
 			fflush(stdout);

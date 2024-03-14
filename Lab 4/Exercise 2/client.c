@@ -88,6 +88,10 @@ void set_client_user_name(char user_name[]) {
 
 void set_user_input(char message[]) {
 	memset(message, 0, MYMSGLEN);
+	
+	int c;
+	while ((c = getchar()) != EOF && c != '\n');
+	
 	printf("-> ");
 	fgets(message, MYMSGLEN, stdin);
 }
@@ -115,13 +119,15 @@ void send_data(int sock, char user_name[]) {
 	char message[MYMSGLEN];
 	
 	set_user_input(message);	
-		
+	
 	process_user_input(sock, message);
 	
 	send_to_server(sock, message, user_name);
 }
 
 void receive_from_server(int sock, char server_reply[]) {
+	memset(server_reply, 0, MYMSGLEN);
+	
 	if (recv(sock, server_reply, MYMSGLEN, 0) != -1) return;
 	
 	printf("Receive failed\n");
@@ -131,19 +137,24 @@ void receive_from_server(int sock, char server_reply[]) {
 
 void* receive_data(void* new_args) {
 	int sock = *((int *) new_args);
+	free(new_args);
+	
 	while (1) {
 		char server_reply[MYMSGLEN];
 		
 		receive_from_server(sock, server_reply);
 	
-		printf("%s\n", server_reply);
+		printf("%s", server_reply);
 	}
 	pthread_exit((void *)0);
 }
 
 void create_receive_thread(int sock) {
 	pthread_t tid;
-	if (pthread_create(&tid, NULL, receive_data, &sock) == 0) return;
+	int *new_sock = malloc(sizeof(*new_sock));
+	*new_sock = sock;
+	
+	if (pthread_create(&tid, NULL, receive_data, (void *) new_sock) == 0) return;
 	
 	printf("Fail to create receive thread\n");
 	close(sock);
@@ -157,7 +168,7 @@ int main(int argc, char* argv[]) {
 	set_client_user_name(user_name);
 	
 	create_receive_thread(sock);
-
+	
 	while (1) {
 		send_data(sock, user_name);
 	}
