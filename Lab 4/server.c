@@ -6,8 +6,6 @@
 #include <unistd.h>
 #include <pthread.h>
 
-#include "thread_allocation.h"
-
 #define SERVERPORT 8888
 #define MYMSGLEN 2048
 #define MAXQUEUE 10
@@ -30,8 +28,7 @@ void mirror ( char * msg )
 
 typedef struct {
 	int client_sock;
-	pthread_t tid;
-	my_thread* thread_map;
+	int* thread_counter;
 } thread_args;	
 
 int create_socket() {
@@ -86,6 +83,7 @@ void bind_socket(int sock, struct sockaddr_in *addr) {
 void listen_to_client(int sock) {
 	if (listen(sock, MAXQUEUE) != -1) {
 		printf("Connection accepted\n");
+		printf("Waiting for incoming connections ....\n");
 		return;
 	}
 	
@@ -109,45 +107,31 @@ int start_server() {
 	return sock;
 }
 
-void create_thread_map(my_thread* thread_map) {
-	if (allocate_thread_map(thread_map, MAXQUEUE) != -1) return;
-	
-	perror("Fail to allocate thread map");
-	exit(1);
-}
-
 int accept_connection(int server_sock, struct sockaddr_in *client) {
 	socklen_t len = sizeof(struct sockaddr_in);
 	int client_sock = accept(server_sock, (struct sockaddr *) client, &len);
 	if (client_sock != -1) return client_sock;
-	
+
+
 	perror("Fail to accept client");
 	return -1;
 }
 
 void print_socket_information(int sock, struct sockaddr_in *addr) {
-	socklen_t len = sizeof(struct sockaddr_in);
+	printf("\nA new client accepted\n");
 	
-	int code = getsockname(sock, (struct sockaddr*) addr, &len);
-	if (code == -1) {
-		perror("Fail to get local socket information");
-		return;
-	}
-	printf("The local address bound to the current socket --> %s:%d \n", 
-		inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
+	socklen_t len = sizeof(struct sockaddr_in);
 		
-	code = getpeername(sock, (struct sockaddr*) addr, &len);
+	int code = getpeername(sock, (struct sockaddr*) addr, &len);
 	if (code == -1) {
-		perror("Fail to get peer socket information");
+		perror("Fail to get client information\n");
 		return;
 	}
-	printf("The peer address bound to the peer socket --> %s:%d \n", 
+	printf("Client_address --> %s:%d \n", 
 		inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
 }
 
 int establish_connection(int server_sock) {
-	printf("\nWaiting for incoming connections ....\n");
-	
 	struct sockaddr_in client;
 	int client_sock = accept_connection(server_sock, &client);
 	
@@ -156,9 +140,7 @@ int establish_connection(int server_sock) {
 	return client_sock;
 }
 
-ssize_t receive_message(int client_sock, char client_message[], ssize_t message_size) {
-	printf("Waiting for a string to process....\n" ) ;
-	
+ssize_t receive_message(int client_sock, char client_message[], ssize_t message_size) {	
 	memset(client_message, 0, MYMSGLEN);
 	 
 	return recv(client_sock, client_message, message_size, 0);
@@ -179,8 +161,10 @@ void* thread_response(void* new_args) {
 	free(new_args);
 		
 	int client_sock = args.client_sock;
-	pthread_t tid = args.tid;
-	my_thread* thread_map = args.thread_map;
+	int *thread_counter = args.thread_counter;
+	
+	(*thread_counter)++;
+	printf("Number of being used thread: %d\n", *thread_counter); 
 	
 	char client_message[MYMSGLEN];
 	
@@ -189,7 +173,7 @@ void* thread_response(void* new_args) {
 	  	ssize_t read_size = receive_message(client_sock, client_message, sizeof(client_message));
 	  	
 		if (read_size == 0) {
-			printf("Client disconnected\n");
+			printf("\nClient disconnected\n");
 			fflush(stdout);
 			break;
 		}
@@ -199,7 +183,7 @@ void* thread_response(void* new_args) {
 		}
 		
 		client_message[read_size] = '\0';
-		printf("Client message: %s\n", client_message);
+		printf("\nMessage from client: %s\n", client_message);
 		
 		if (answer_message(client_sock, client_message, read_size) != -1) continue;
 		
@@ -207,12 +191,14 @@ void* thread_response(void* new_args) {
 		break;
 	}
 	
-	release_thread(thread_map, MAXQUEUE, tid);
+	(*thread_counter)--;
+	printf("Number of being used thread: %d\n", *thread_counter); 
+	
 	pthread_exit((void *)0);
 }
 
-void response(int client_sock, my_thread* thread_map) {
-	pthread_t tid = allocate_thread(thread_map, MAXQUEUE);
+void response(int client_sock, unsigned int *thread_counter) {
+	pthread_t tid;
 	if (tid == -1) {
 		printf("There is no thread available at the moment");
 		return;
@@ -220,20 +206,17 @@ void response(int client_sock, my_thread* thread_map) {
 	
 	thread_args* new_args = (thread_args *)malloc(sizeof(thread_args));
 	new_args->client_sock = client_sock;
-	new_args->tid = tid;
-	new_args->thread_map = thread_map;
+	new_args->thread_counter = thread_counter;
 	
 	if (pthread_create(&tid, NULL, thread_response, new_args) == 0) return;
-	
+
 	printf("Fail to create a thread");
-	return;
 }
 
 int main(int argc, char *argv[]) {
 	int server_sock = start_server();
 	
-	my_thread thread_map[MAXQUEUE];
-	create_thread_map(thread_map);
+	unsigned int thread_counter = 0;
 	
 	while (1) {
 		
@@ -244,7 +227,7 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		
-		response(client_sock, thread_map);
+		response(client_sock, &thread_counter);
 	}
 	
 	return 0;
