@@ -100,7 +100,7 @@ void process_user_input(int sock, char message[]) {
 }
 
 void send_to_server(int sock, char message[], char user_name[]) {
-	char* new_message;
+	char new_message[MYMSGLEN + USERNAME + 10];
 	sprintf(new_message, "%s says: %s", user_name, message); 	
 	
 	if (send(sock, new_message, strlen(new_message), 0) != -1) return;
@@ -132,7 +132,7 @@ void* receive_data(void* new_args) {
 	int sock = *((int *) new_args);
 	while (1) {
 		char server_reply[MYMSGLEN];
-	
+		
 		receive_from_server(sock, server_reply);
 	
 		printf("%s\n", server_reply);
@@ -156,7 +156,7 @@ int main(int argc, char* argv[]) {
 	set_client_user_name(user_name);
 	
 	create_receive_thread(sock);
-	
+
 	while (1) {
 		send_data(sock, user_name);
 	}
