@@ -82,12 +82,13 @@ int connecting() {
 
 void set_client_user_name(char user_name[]) {
 	memset(user_name, 0, USERNAME);
-	printf("\nEnter your user name: \n");
+	printf("\nEnter your user name: ");
 	scanf("%s", user_name);
 }
 
 void set_user_input(char message[]) {
 	memset(message, 0, MYMSGLEN);
+	printf("-> ");
 	fgets(message, MYMSGLEN, stdin);
 }
 

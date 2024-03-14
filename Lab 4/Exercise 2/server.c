@@ -39,6 +39,7 @@ void remove_client(client **head, int client_sock) {
 	  	client *temp_client = (*head)->next;
 	  	(*head)->next = temp_client->next;
 	  	free(temp_client);
+	  	return;
 	}
 	
   	client *temp_client = (*head)->next;
@@ -214,10 +215,6 @@ void* thread_response(void* new_args) {
 
 void response(int client_sock, client** head) {
 	pthread_t tid;
-	if (tid == -1) {
-		printf("There is no thread available at the moment");
-		return;
-	}
 	
 	thread_args* new_args = (thread_args *)malloc(sizeof(thread_args));
 	new_args->client_sock = client_sock;
@@ -241,6 +238,7 @@ int main(int argc, char *argv[]) {
 		if (client_sock == -1) {
 			perror("Fail to accept connection from client");
 			continue;
+			
 		}
 		
 		insert_client(&head, client_sock);
