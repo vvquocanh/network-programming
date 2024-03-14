@@ -85,7 +85,7 @@ void set_user_input(char message[]) {
 }
 
 void process_user_input(int sock, char message[]) {
-	if (strcmp(message, "quit#") != 0) return;
+	if (strcmp(message, "quit#\n") != 0) return;
 	
 	close(sock);
 	printf("Disconnected from the server\n");

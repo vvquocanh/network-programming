@@ -9,6 +9,7 @@
 #define SERVERPORT 8888
 #define MYMSGLEN 2048
 #define MAXQUEUE 10
+#define NICKNAME 30
 
 typedef struct {
 	int client_sock;
@@ -16,13 +17,13 @@ typedef struct {
 } thread_args;	
 
 typedef struct Client {
-	thread_args args;
+	int client_sock;
 	struct Client *next;
 } client;
 
-void insert_client(client **head, thread_args new_args) {
+void insert_client(client **head, int client_sock) {
 	client *new_client = (client *)malloc(sizeof(client));
-	new_client->args = new_args;
+	new_client->client_sock = client_sock;
 	new_client->next = NULL;
 	
 	if ((*head)->next == NULL) {
@@ -35,7 +36,7 @@ void insert_client(client **head, thread_args new_args) {
 }
 
 void remove_client(client **head, int client_sock) {
-	if ((*head)->next != NULL && (*head)->next->args.client_sock == client_sock) {
+	if ((*head)->next != NULL && (*head)->next->client_sock == client_sock) {
 	  	client *temp_client = (*head)->next;
 	  	(*head)->next = temp_client->next;
 	  	free(temp_client);
@@ -44,7 +45,7 @@ void remove_client(client **head, int client_sock) {
   	client *temp_client = (*head)->next;
 	
   	while (temp_client->next != NULL) {
-    		if (temp_client->next->args.client_sock == client_sock) {
+    		if (temp_client->next->client_sock == client_sock) {
     			client *temp_temp_client = temp_client->next;
     			temp_client->next = temp_temp_client->next;
       			free(temp_temp_client);
@@ -170,12 +171,16 @@ ssize_t receive_message(int client_sock, char client_message[], ssize_t message_
 	return recv(client_sock, client_message, message_size, 0);
 }
 
-int answer_message(int client_sock, char client_message[], ssize_t message_size) {
-	char server_reply[message_size];
+void answer_message(int client_sock, char client_message[], ssize_t message_size, client **head) {
+	client* temp_client = (*head)->next;
 	
-	strcpy(server_reply, client_message);
-	
-	return send(client_sock, &server_reply, message_size, 0);
+	while(temp_client != NULL) {
+		if (temp_client->client_sock != client_sock) {
+			send(temp_client->client_sock, client_message, message_size, 0);
+		}
+		
+		temp_client = temp_client->next;
+	}
 }
 
 void* thread_response(void* new_args) {
@@ -183,6 +188,7 @@ void* thread_response(void* new_args) {
 	free(new_args);
 		
 	int client_sock = args.client_sock;
+	client* head = args.head;
 	
 	char client_message[MYMSGLEN];
 	
@@ -203,16 +209,14 @@ void* thread_response(void* new_args) {
 		client_message[read_size] = '\0';
 		printf("\nMessage from client: %s\n", client_message);
 		
-		if (answer_message(client_sock, client_message, read_size) != -1) continue;
-		
-		perror("Fail to answer client");
-		break;
+		answer_message(client_sock, client_message, read_size, &head);
 	}
 	
+	remove_client(&head, client_sock);
 	pthread_exit((void *)0);
 }
 
-void response(int client_sock, unsigned int *thread_counter) {
+void response(int client_sock, client** head) {
 	pthread_t tid;
 	if (tid == -1) {
 		printf("There is no thread available at the moment");
@@ -221,6 +225,7 @@ void response(int client_sock, unsigned int *thread_counter) {
 	
 	thread_args* new_args = (thread_args *)malloc(sizeof(thread_args));
 	new_args->client_sock = client_sock;
+	new_args->head = *head;
 	
 	if (pthread_create(&tid, NULL, thread_response, new_args) == 0) return;
 
@@ -230,7 +235,8 @@ void response(int client_sock, unsigned int *thread_counter) {
 int main(int argc, char *argv[]) {
 	int server_sock = start_server();
 	
-	unsigned int thread_counter = 0;
+	client *head = (client *)malloc(sizeof(client));
+	head->next = NULL;
 	
 	while (1) {
 		
@@ -241,7 +247,9 @@ int main(int argc, char *argv[]) {
 			continue;
 		}
 		
-		response(client_sock, &thread_counter);
+		insert_client(&head, client_sock);
+		
+		response(client_sock, &head);
 	}
 	
 	return 0;
