@@ -10,26 +10,50 @@
 #define MYMSGLEN 2048
 #define MAXQUEUE 10
 
-void mirror ( char * msg )
-{
-        int i ;
-        int length ;
-        char car ;
-        
-        length = strlen ( msg ) ;
-        
-        for ( i = 0 ; i < ( length / 2 ) ; i ++ )
-        {
-            car = msg [ i ] ;
-            msg [ i ] = msg [ length - i - 1 ] ;
-            msg [ length - i - 1 ] = car ;
-        }
-}
-
 typedef struct {
 	int client_sock;
-	int* thread_counter;
+	struct Client *head;
 } thread_args;	
+
+typedef struct Client {
+	thread_args args;
+	struct Client *next;
+} client;
+
+void insert_client(client **head, thread_args new_args) {
+	client *new_client = (client *)malloc(sizeof(client));
+	new_client->args = new_args;
+	new_client->next = NULL;
+	
+	if ((*head)->next == NULL) {
+    		(*head)->next = new_client;
+    		return;
+  	}
+
+  	new_client->next = (*head)->next;
+  	(*head)->next = new_client;
+}
+
+void remove_client(client **head, int client_sock) {
+	if ((*head)->next != NULL && (*head)->next->args.client_sock == client_sock) {
+	  	client *temp_client = (*head)->next;
+	  	(*head)->next = temp_client->next;
+	  	free(temp_client);
+	}
+	
+  	client *temp_client = (*head)->next;
+	
+  	while (temp_client->next != NULL) {
+    		if (temp_client->next->args.client_sock == client_sock) {
+    			client *temp_temp_client = temp_client->next;
+    			temp_client->next = temp_temp_client->next;
+      			free(temp_temp_client);
+      			break;
+    		}
+
+		temp_client = temp_client->next;
+  	}
+}
 
 int create_socket() {
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -151,8 +175,6 @@ int answer_message(int client_sock, char client_message[], ssize_t message_size)
 	
 	strcpy(server_reply, client_message);
 	
-	mirror(server_reply);
-	
 	return send(client_sock, &server_reply, message_size, 0);
 }
 
@@ -161,10 +183,6 @@ void* thread_response(void* new_args) {
 	free(new_args);
 		
 	int client_sock = args.client_sock;
-	int *thread_counter = args.thread_counter;
-	
-	(*thread_counter)++;
-	printf("Number of being used thread: %d\n", *thread_counter); 
 	
 	char client_message[MYMSGLEN];
 	
@@ -191,9 +209,6 @@ void* thread_response(void* new_args) {
 		break;
 	}
 	
-	(*thread_counter)--;
-	printf("Number of being used thread: %d\n", *thread_counter); 
-	
 	pthread_exit((void *)0);
 }
 
@@ -206,7 +221,6 @@ void response(int client_sock, unsigned int *thread_counter) {
 	
 	thread_args* new_args = (thread_args *)malloc(sizeof(thread_args));
 	new_args->client_sock = client_sock;
-	new_args->thread_counter = thread_counter;
 	
 	if (pthread_create(&tid, NULL, thread_response, new_args) == 0) return;
 
