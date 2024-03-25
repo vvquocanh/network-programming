@@ -8,16 +8,8 @@
 #define SERVERPORT 8888
 #define MYMSGLEN 2048
 #define MAXQUEUE 3
-
-int palindrome (char *s)
-{
-	char *t = s + strlen(s) - 1;
-	
-	while (*s == *t)
-		s++, t--;
-		
-	return s >= t;
-}
+#define TIMEOUT 30
+#define MAXSOCKDESC 50
 
 int create_socket() {
 	int sock = socket(AF_INET, SOCK_STREAM, 0);
@@ -94,6 +86,20 @@ int start_server() {
 	return sock;
 }
 
+void reset_interval(struct timeval *interval) {
+	interval->tv_sec = TIMEOUT;
+	interval->tv_usec = 0;
+}
+
+void setup_fdset(int server_sock, fd_set *fd_read, fd_set *fd_read_master, struct timeval *interval) {
+	FD_ZERO(fd_read);
+    	FD_ZERO(fd_read_master);
+    	
+    	FD_SET(server_sock, fd_read_master);
+    	
+    	reset_interval(interval);
+}
+
 int accept_connection(int server_sock, struct sockaddr_in *client) {
 	socklen_t len = sizeof(struct sockaddr_in);
 	int client_sock = accept(server_sock, (struct sockaddr *) client, &len);
@@ -103,91 +109,90 @@ int accept_connection(int server_sock, struct sockaddr_in *client) {
 	return -1;
 }
 
-void print_socket_information(int sock, struct sockaddr_in *addr) {
-	socklen_t len = sizeof(struct sockaddr_in);
-	
-	int code = getsockname(sock, (struct sockaddr*) addr, &len);
-	if (code == -1) {
-		perror("Fail to get local socket information");
-		return;
-	}
-	printf("The local address bound to the current socket --> %s:%d \n", 
-		inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
-		
-	code = getpeername(sock, (struct sockaddr*) addr, &len);
-	if (code == -1) {
-		perror("Fail to get peer socket information");
-		return;
-	}
-	printf("The peer address bound to the peer socket --> %s:%d \n", 
-		inet_ntoa(addr->sin_addr), ntohs(addr->sin_port));
-}
-
 int establish_connection(int server_sock) {
-	printf("\nWaiting for incoming connections ....\n");
-	
+
 	struct sockaddr_in client;
-	int client_sock = accept_connection(server_sock, &client);
 	
-	print_socket_information(client_sock, &client);
-	
-	return client_sock;
+	return accept_connection(server_sock, &client);
 }
 
-ssize_t receive_message(int client_sock, char client_message[], size_t message_size) {
-	printf("Waiting for a string to process....\n" ) ;
-	
-	memset(client_message, 0, MYMSGLEN);
-	 
-	return recv(client_sock, client_message, message_size, 0);
-}
-
-int answer_message(int client_sock, char client_message[]) {
-	int result = palindrome(client_message);
-	
-	return send(client_sock, &result, sizeof(int), 0);
-}
-
-void response(int client_sock) {
+int response(int client_sock, fd_set *fd_read_master) {
 	char client_message[MYMSGLEN];
+	memset(client_message, 0, MYMSGLEN);
+	ssize_t read_size = recv(client_sock, client_message, sizeof(client_message), 0);
 	
-	while(1)
-	{
-	  	ssize_t read_size = receive_message(client_sock, client_message, sizeof(client_message));
-	  	
-		if (read_size == 0) {
-			printf("Client disconnected\n");
-			fflush(stdout);
-			break;
-		}
-		else if (read_size == -1) {
-			perror("Failed to receive from client\n");
-			break;
-		}
-		
-		client_message[read_size] = '\0';
-		printf("Client message: %s\n", client_message);
-		
-		if (answer_message(client_sock, client_message) != -1) continue;
-		
-		perror("Fail to answer client");
-		break;
+	if (read_size == 0) {
+		printf("Client disconnected\n");
+		fflush(stdout);
+		FD_CLR(client_sock, fd_read_master);
 	}
+	else if (read_size == -1) {
+		perror("Failed to receive from client\n");
+		FD_CLR(client_sock, fd_read_master);
+	}
+		
+	client_message[read_size] = '\0';
+	printf("Client message: %s\n", client_message);
+		
+	if (send(client_sock, &client_message, sizeof(client_message), 0) == -1) 
+		perror("Fail to answer client");
+		
 }
 
 int main(int argc, char *argv[]) {
 	int server_sock = start_server();
 	
+	fd_set fd_read, fd_read_master;
+	struct timeval interval;
+	setup_fdset(server_sock, &fd_read, &fd_read_master, &interval);
+	
+	int highest_sock_desc = server_sock;
+	int sock_desc[MAXSOCKDESC] = {0};
+	
 	while (1) {
 		
-		int client_sock = establish_connection(server_sock);
+		fd_read = fd_read_master;
 		
-		if (client_sock == -1) {
-			perror("Fail to accept connection from clint");
-			continue;
+		int rv = select(highest_sock_desc + 1, &fd_read, NULL, NULL, &interval);
+		
+		if (rv == -1) {
+			perror("Error on the select() function\n");
+			exit(1);
 		}
+		else if (rv == 0) {
+			printf("Time out! No data after %d seconds\n", TIMEOUT);
+            		reset_interval(&interval);
+		}
+		else {
+			if (FD_ISSET(server_sock, &fd_read)) {
+				int client_sock = establish_connection(server_sock);
 		
-		response(client_sock);
+				if (client_sock == -1) {
+					perror("Fail to accept connection from client\n");
+					continue;
+				}
+				else 
+					printf("New client arrived: %d\n", client_sock);
+				
+				for (int i = 0; i < MAXSOCKDESC; i++) {
+					if (sock_desc[i] != 0) continue;
+					
+					sock_desc[i] = client_sock;
+					break;
+				}
+				
+				FD_SET(client_sock, &fd_read_master);
+				if (client_sock > highest_sock_desc) highest_sock_desc = client_sock;
+			}
+			
+			for (int i = 0; i < MAXSOCKDESC; i++) {
+				if (sock_desc[i] == 0) continue;
+				
+				if (FD_ISSET(sock_desc[i], &fd_read)) {
+					response(sock_desc[i], &fd_read_master);	
+				} 
+			}
+		}
 	}
 	
 	return 0;

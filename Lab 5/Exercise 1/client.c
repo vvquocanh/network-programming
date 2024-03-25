@@ -108,25 +108,19 @@ void send_data(int sock) {
 	process_user_input(sock, message);
 	
 	send_to_server(sock, message, strlen(message));
-}
+}	
 
-int receive_from_server(int sock) {
-	int server_reply;
-	
-	if (recv(sock, &server_reply, sizeof(int), 0) != -1) return server_reply;
+void receive_data(int sock) {
+	char server_reply[MYMSGLEN];
+	memset(server_reply, 0, MYMSGLEN);
+	if (recv(sock, &server_reply, sizeof(server_reply), 0) != -1) {
+		printf("Server reply: %s\n", server_reply);
+		return;
+	}
 	
 	printf("Receive failed\n");
 	close(sock);
 	exit(1);
-}
-
-void print_result(int server_reply) {
-	if (server_reply == 1) printf("The string is palindrome\n");
-	else printf("The string is NOT palindrome\n");
-}
-
-void receive_data(int sock) {
-	print_result(receive_from_server(sock));
 }
 
 int main(int argc, char* argv[]) {
